@@ -252,7 +252,6 @@ function MainScreen()
                         {
                             updatePlaybackButtonImage(pauseImage);
                         }
-                        console.log(spotifyReturnedObject);
                     })
                 }
             };
