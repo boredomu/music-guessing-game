@@ -22,12 +22,13 @@ interface GuessHandlerArguments
 const noWidth = 0;
 const noHeight = 0;
 const defaultToZero = 0;
+const firstElement = 0;
 const typedGuessIndex = 1;
 const increment = 1;
 const decrement = 1;
 const oneGuessLeft = 1;
 const oneElement = 1;
-const firstElement = 1;
+const minimumGuessLength = 2;
 const singleSpaceAscii = 32;
 const openBracketAscii = 40;
 const closedBracketAscii = 41;
@@ -165,7 +166,7 @@ function guessHandler({result, currentTrack, guessesRemaining, updateGuessesRema
     const trackName = filterString(currentTrack.current[trackKey]);
     const artistName = filterString(currentTrack.current[artistKey]);
     const correctTrackGuess = filterString(userGuess) == trackName;
-    const correctArtistGuess = filterString(userGuess).search(artistName);
+    const correctArtistGuess = artistName.search(filterString(userGuess));
     const noGuessesLeft = guessesRemaining == oneGuessLeft;
     if(correctTrackGuess || noGuessesLeft)
     {
@@ -180,7 +181,7 @@ function guessHandler({result, currentTrack, guessesRemaining, updateGuessesRema
     {
         result.target.reset();
 
-        if(correctArtistGuess >= defaultToZero)
+        if(correctArtistGuess >= defaultToZero && userGuess.length >= minimumGuessLength)
         {
             userGuess = correctGuessEmoji + userGuess;
         }
