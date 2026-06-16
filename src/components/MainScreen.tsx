@@ -264,7 +264,7 @@ function MainScreen()
     return(
         <div>
             <span id={replacedByEmbedId}></span>
-            <h1 className="header centered">Heardle</h1>
+            <h1 className="header centered">Boredle</h1>
             {
                 gameState
                 ?   
