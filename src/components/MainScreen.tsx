@@ -16,7 +16,7 @@ interface GuessHandlerArguments
     previousGuesses: string[],
     updatePreviousGuesses: React.Dispatch<React.SetStateAction<string[]>>,
     updateRoundResult: React.Dispatch<React.SetStateAction<boolean>>,
-    updateSearchedTrackName: React.Dispatch<React.SetStateAction<string>>
+    updateSearchedTrackName: React.Dispatch<React.SetStateAction<{tracks: string[], index: number}>>
 }
 
 // Constants
@@ -31,6 +31,7 @@ const oneGuessLeft = 1;
 const oneElement = 1;
 const secondChar = 1;
 const minimumGuessLength = 2;
+const numberOfMaxMatchingTracks = 5;
 const singleSpaceAscii = 32;
 const openBracketAscii = 40;
 const closedBracketAscii = 41;
@@ -66,12 +67,18 @@ const defaultTrackObject = {
     album: emptyString,
     track_id: emptyString
 };
+const defaultSearchedTrackNameObject = {
+    tracks: [emptyString],
+    index: defaultToZero 
+}
 
 // Local dictionary keys
 const dataKey = "data";
 const isPausedKey = "isPaused";
 const trackPositionKey = "position";
 const trackDurationKey = "duration";
+const tracksKey = "tracks";
+const indexKey = "index";
 
 // React hook related
 const startingGuesses = 6;
@@ -161,40 +168,45 @@ function endRound()
 function guessHandler({result, currentTrack, guessesRemaining, updateGuessesRemaining, previousGuesses, updatePreviousGuesses, updateRoundResult, updateSearchedTrackName}: GuessHandlerArguments)
 {
     result.preventDefault();
-    updateGuessesRemaining(guessesRemaining - decrement);
-
     let userGuess = result.target[typedGuessIndex].value;
-    const trackName = filterString(currentTrack.current[trackKey]);
-    const artistName = filterString(currentTrack.current[artistKey]);
-    const correctTrackGuess = filterString(userGuess) == trackName;
-    const correctArtistGuess = artistName.search(filterString(userGuess));
-    const noGuessesLeft = guessesRemaining == oneGuessLeft;
-    if(correctTrackGuess || noGuessesLeft)
-    {
-        if(correctTrackGuess)
-        {
-            updateRoundResult(roundWon);
-        }
+    const trimmedUserGuess = userGuess.trim();
 
-        endRound();
-    }
-    else
+    if(trimmedUserGuess != emptyString)
     {
-        result.target.reset();
-        updateSearchedTrackName(emptyString);
+        updateGuessesRemaining(guessesRemaining - decrement);
 
-        if(correctArtistGuess >= defaultToZero && userGuess.length >= minimumGuessLength)
+        const trackName = filterString(currentTrack.current[trackKey]);
+        const artistName = filterString(currentTrack.current[artistKey]);
+        const correctTrackGuess = filterString(userGuess) == trackName;
+        const correctArtistGuess = artistName.search(filterString(userGuess));
+        const noGuessesLeft = guessesRemaining == oneGuessLeft;
+        if(correctTrackGuess || noGuessesLeft)
         {
-            userGuess = correctGuessEmoji + userGuess;
+            if(correctTrackGuess)
+            {
+                updateRoundResult(roundWon);
+            }
+
+            endRound();
         }
         else
         {
-            userGuess = wrongGuessEmoji + userGuess;
-        }
+            result.target.reset();
+            updateSearchedTrackName(defaultSearchedTrackNameObject);
 
-        const updatedState = previousGuesses;
-        previousGuesses[startingGuesses - guessesRemaining] = userGuess;
-        updatePreviousGuesses(updatedState);
+            if(correctArtistGuess >= defaultToZero && userGuess.length >= minimumGuessLength)
+            {
+                userGuess = correctGuessEmoji + userGuess;
+            }
+            else
+            {
+                userGuess = wrongGuessEmoji + userGuess;
+            }
+
+            const updatedState = previousGuesses;
+            previousGuesses[startingGuesses - guessesRemaining] = userGuess;
+            updatePreviousGuesses(updatedState);
+        }
     }
 }
 
@@ -207,7 +219,7 @@ function MainScreen()
     const [playbackButtonVisibility, updatePlaybackButtonVisibility] = useState(notVisible);
     const [playbackButtonImage, updatePlaybackButtonImage] = useState(playImage)
     const [previousGuesses, updatePreviousGuesses] = useState(defaultWrongGuessesList);
-    const [searchedTrackName, updateSearchedTrackName] = useState(emptyString);
+    const [searchedTrackName, updateSearchedTrackName] = useState(defaultSearchedTrackNameObject);
     const trackList = useRef([defaultTrackObject]);
     const currentTrack = useRef(defaultTrackObject);
 
@@ -218,14 +230,20 @@ function MainScreen()
 
         if(typedGuess == emptyString)
         {
-            updateSearchedTrackName(emptyString);
+            updateSearchedTrackName(defaultSearchedTrackNameObject);
         }
         else
         {
+            let newSearchedTrackNameObject = {
+                tracks: [ellipses],
+                index: defaultToZero
+            }
             let closestTrackNameMatch = ellipses;
             let currentTrackIndex = defaultToZero;
+            let numberOfMatchingTracks = defaultToZero;
             const trackListLength = trackList.current.length;
-            while(currentTrackIndex < trackListLength)
+
+            while(currentTrackIndex < trackListLength && numberOfMatchingTracks < numberOfMaxMatchingTracks)
             {
                 const currentTrackName = trackList.current[currentTrackIndex][trackKey];
                 const typedGuessFoundLessFiltered = currentTrackName.toLowerCase().trim().search(typedGuess) >= defaultToZero
@@ -233,12 +251,24 @@ function MainScreen()
                 if(typedGuessFoundLessFiltered || typedGuessFoundFiltered)
                 {
                     closestTrackNameMatch = "\"" + currentTrackName + "\"";
-                    break;
+
+                    let tracks = newSearchedTrackNameObject[tracksKey];
+                    if(numberOfMatchingTracks == defaultToZero)
+                    {
+                        tracks[firstElement] = closestTrackNameMatch;
+                    }
+                    else
+                    {
+                        tracks.push(closestTrackNameMatch);
+                    }
+
+                    numberOfMatchingTracks += increment;
                 }
 
                 currentTrackIndex += increment;
             }
-            updateSearchedTrackName(closestTrackNameMatch);
+
+            updateSearchedTrackName(newSearchedTrackNameObject);
         }
     }
 
@@ -251,10 +281,25 @@ function MainScreen()
         {
             keyEvent.preventDefault();
 
-            if(searchedTrackName != ellipses)
+            const tracks = searchedTrackName[tracksKey];
+            const index = searchedTrackName[indexKey];
+            const currentSearchedTrack = tracks[index];
+            if(currentSearchedTrack != ellipses)
             {
-                const secondLastChar = searchedTrackName.length - decrement;
-                originatingInputForm.value = searchedTrackName.substring(secondChar, secondLastChar);
+                const secondLastChar = currentSearchedTrack.length - decrement;
+                originatingInputForm.value = currentSearchedTrack.substring(secondChar, secondLastChar);
+
+                let stateClone = structuredClone(searchedTrackName);
+                if(stateClone[indexKey] == stateClone[tracksKey].length - decrement)
+                {
+                    stateClone[indexKey] = defaultToZero;
+                }
+                else
+                {
+                    stateClone[indexKey] += increment;
+                }
+
+                updateSearchedTrackName(stateClone);
             }
         }
     }
@@ -358,7 +403,7 @@ function MainScreen()
                                 </table>
                             </div>
                             <input id={playbackButtonId} className="spacing" type="button" style={{...inlineDisplay, ...inlineBackgroundImage}}></input>
-                            <p className="mini-text light-grey-text">{searchedTrackName}</p>
+                            <p className="mini-text light-grey-text">{searchedTrackName[tracksKey][searchedTrackName[indexKey]]} {(searchedTrackName[tracksKey][firstElement] != emptyString && searchedTrackName[tracksKey][firstElement] != ellipses) && "(" + (searchedTrackName[indexKey] + increment) + "/" + searchedTrackName[tracksKey].length + ")"}</p>
                             <form className="spacing" onSubmit={(result) => {guessHandler({result, currentTrack, guessesRemaining, updateGuessesRemaining, previousGuesses, updatePreviousGuesses, updateRoundResult, updateSearchedTrackName})}}>
                                 <input id="giveUp" className="fancy-button grey-background" type="button" onClick={endRound} value="Give Up"></input>
                                 <input id="typedGuess" type="text" placeholder={defaultPlaceholderText} onInput={searchAsYouType} onKeyDown={customTabFunctionality} autoComplete="off"></input>
